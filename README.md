@@ -2,12 +2,6 @@
 
 Generate a comprehensive report of your contributions to any GitHub repository.
 
-## Features
-
-- 📊 Detailed contribution statistics (commits, PRs, reviews, issues)
-- 📈 Monthly activity heatmap
-- 📱 Social media ready HTML output
-
 ## Quick Start
 
 ### 1. Clone or Download Files
