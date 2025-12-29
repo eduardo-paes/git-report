@@ -6,7 +6,7 @@ Generate a comprehensive report of your contributions to any GitHub repository.
 
 - 📊 Detailed contribution statistics (commits, PRs, reviews, issues)
 - 📈 Monthly activity heatmap
-- 📱 Social media ready text output
+- 📱 Social media ready HTML output
 
 ## Quick Start
 
@@ -40,63 +40,18 @@ Edit the `.env` file with your details. Fill in:
 6. Copy the token (you won't see it again!)
 7. Paste it in your `.env` file
 
-### 4. Run the Report
+### 4. Install Dependencies
+
+Generate a virtual environment and install dependencies:
 
 ```bash
-source venv/bin/activate
-python github_contributions.py
-```
-
-## Manual Setup
-
-If you prefer to set up manually:
-
-```bash
-# Create virtual environment
 python3 -m venv venv
-
-# Activate it
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
+```
 
-# Run the script
+### 5. Run the Report
+
+```bash
 python github_contributions.py
-```
-
-## Output Example
-
-The script generates:
-
-### Console Report
-
-```bash
-💻 COMMITS
-  Total Commits: 156
-  Files Changed: 423
-  Lines Added: +12,456
-  Lines Deleted: -3,234
-  Net Change: +9,222 lines
-
-🔀 PULL REQUESTS
-  Total PRs: 45
-  Merged: 42 ✅
-  Closed: 2
-  Open: 1
-  Merge Rate: 93.3%
-```
-
-### Social Media Post
-
-```bash
-🎯 My 2024 Contributions to microsoft/vscode
-
-💻 156 commits
-📝 12,456+ / 3,234- lines of code
-🔀 42 PRs merged
-👀 28 PRs reviewed
-🐛 15 issues created
-
-Total impact: 246 contributions! 🚀
 ```
