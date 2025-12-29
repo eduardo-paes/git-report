@@ -1,14 +1,12 @@
 # GitHub Contribution Report Generator
 
-Generate a comprehensive report of your contributions to any GitHub repository, perfect for sharing on social media!
+Generate a comprehensive report of your contributions to any GitHub repository.
 
 ## Features
 
 - 📊 Detailed contribution statistics (commits, PRs, reviews, issues)
 - 📈 Monthly activity heatmap
 - 📱 Social media ready text output
-- 🔐 Secure configuration via `.env` file
-- 🚀 Easy setup with automated script
 
 ## Quick Start
 
@@ -18,20 +16,13 @@ Make sure you have these files in your project directory:
 
 ```txt
 github_contributions.py
-setup.sh
 .env.example
 requirements.txt
 ```
 
 ### 2. Configure Your Settings
 
-Edit the `.env` file with your details:
-
-```bash
-nano .env  # or use your favorite editor
-```
-
-Fill in:
+Edit the `.env` file with your details. Fill in:
 
 - `GITHUB_TOKEN`: Your GitHub personal access token
 - `GITHUB_USERNAME`: Your GitHub username
@@ -69,10 +60,6 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Copy and edit configuration
-cp .env.example .env
-nano .env
 
 # Run the script
 python github_contributions.py
