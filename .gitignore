@@ -3,6 +3,9 @@ venv/
 env/
 ENV/
 
+# Outputs
+outputs/
+
 # Environment variables
 .env
 

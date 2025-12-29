@@ -116,22 +116,16 @@ def get_commits(org, repo, username, start_date, end_date):
         month_key = date.strftime("%Y-%m")
         stats['by_month'][month_key] += 1
     
-    # Sample commits for detailed stats
-    sample_size = min(30, len(all_commits))
-    
-    if sample_size > 0:
-        print(f"   📊 Sampling {sample_size} commits for detailed stats...")
-        
-        # Get evenly distributed sample
-        step = len(all_commits) // sample_size if sample_size > 0 else 1
-        sample_commits = all_commits[::step][:sample_size]
+    # Get detailed stats for ALL commits
+    if len(all_commits) > 0:
+        print(f"   📊 Fetching detailed stats for all {len(all_commits)} commits...")
         
         total_additions = 0
         total_deletions = 0
         total_files = 0
         
-        with tqdm(total=sample_size, desc="Analyzing sample", unit=" commits") as pbar:
-            for commit in sample_commits:
+        with tqdm(total=len(all_commits), desc="Analyzing commits", unit=" commits") as pbar:
+            for commit in all_commits:
                 commit_detail = requests.get(commit['url'], headers=headers).json()
                 
                 if 'stats' in commit_detail:
@@ -142,15 +136,13 @@ def get_commits(org, repo, username, start_date, end_date):
                     total_files += len(commit_detail['files'])
                 
                 pbar.update(1)
-                time.sleep(0.05)  # Small delay
+                time.sleep(0.05)  # Small delay to avoid rate limiting
         
-        # Extrapolate to all commits
-        multiplier = len(all_commits) / sample_size
-        stats['additions'] = int(total_additions * multiplier)
-        stats['deletions'] = int(total_deletions * multiplier)
-        stats['files_changed'] = int(total_files * multiplier)
+        stats['additions'] = total_additions
+        stats['deletions'] = total_deletions
+        stats['files_changed'] = total_files
     
-    print(f"   ✅ Found {stats['total']} commits with ~{stats['additions']:,}/~{stats['deletions']:,} lines")
+    print(f"   ✅ Found {stats['total']} commits with {stats['additions']:,}/{stats['deletions']:,} lines")
     
     return stats, all_commits
 
@@ -822,18 +814,19 @@ def generate_report(org, repo, username, year):
     elapsed_time = time.time() - start_time
     
     # Generate HTML report
+    print("   📄 Creating HTML report...")
     html_content = generate_html_report(
         org, repo, username, year,
         commit_stats, pr_stats, review_stats, issue_stats, comment_count
     )
     
-    # Save to file
-    filename = f"github_report_{username}_{year}.html"
-    with open(filename, 'w', encoding='utf-8') as f:
-        f.write(html_content)
+    # Create output directory if not exists
+    os.makedirs("outputs", exist_ok=True)
     
-    print(f"✅ Report saved to: {filename}")
-    print(f"🌐 Open it in your browser to view!")
+    html_filename = f"outputs/github_report_{username}_{year}.html"
+    with open(html_filename, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    print(f"   ✅ HTML saved: {html_filename}")
     
     # Generate quick terminal report
     total_contributions = (commit_stats['total'] + pr_stats['total'] + 
@@ -854,7 +847,6 @@ def generate_report(org, repo, username, year):
     
     # Final message
     print("\n" + "=" * 70)
-    print(f"🎉 All done! Open {filename} in your browser")
     print("📸 Take a screenshot to share on social media!")
     print("=" * 70)
 
