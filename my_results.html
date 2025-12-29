@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025 GitHub Contributions - eduardo-paes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0b1955 0%, #150a20 100%);
+            color: #fff;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header .year {
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            opacity: 0.8;
+        }
+
+        .github-link {
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .github-link:hover {
+            color: #FFA500;
+            text-decoration: underline;
+        }
+
+        .repo-info {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+
+        .repo-info h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .repo-info .contributor {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card .icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .card .number {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .card .label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .card .subtitle {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+
+        .section {
+            margin-bottom: 2.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+        }
+
+        .section:last-child {
+            margin-bottom: 0;
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .heatmap {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .heatmap-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .month-label {
+            width: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .month-bar {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            height: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .month-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #43a598, #306ad6);
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: width 0.8s ease;
+        }
+
+        .social-post {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            text-align: center;
+        }
+
+        .social-post .emoji-line {
+            margin: 0.5rem 0;
+        }
+
+        .highlight {
+            color: #FFD700;
+            font-weight: 700;
+        }
+
+        .impact-number {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .progress-bar {
+            background: rgba(0, 0, 0, 0.3);
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: width 1s ease;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .header .year {
+                font-size: 3rem;
+            }
+
+            .card .number {
+                font-size: 2rem;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .container {
+                background: white;
+                color: #333;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="year">2025</div>
+            <h1>GitHub Contribution Report</h1>
+        </div>
+
+        <div class="cards-grid">
+            <div class="card">
+                <div class="icon">💻</div>
+                <div class="number">552</div>
+                <div class="label">Commits</div>
+                <div class="subtitle">4,871 files changed</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">🔀</div>
+                <div class="number">616</div>
+                <div class="label">Pull Requests</div>
+                <div class="subtitle">549 merged ✅</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">👀</div>
+                <div class="number">174</div>
+                <div class="label">Code Reviews</div>
+                <div class="subtitle">118 PRs reviewed</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">📝</div>
+                <div class="number">32K+</div>
+                <div class="label">Net Lines</div>
+                <div class="subtitle">+84,218 / -52,091</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">💬</div>
+                <div class="number">458</div>
+                <div class="label">Discussions</div>
+                <div class="subtitle">5 issues created</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">🎯</div>
+                <div class="number">1,347</div>
+                <div class="label">Total Impact</div>
+                <div class="subtitle">89.1% merge rate</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>📊</span> Monthly Activity</h3>
+            <em>Number of commits per month in 2025</em>
+            <br/><br/>
+
+            <div class="heatmap">
+                <div class="heatmap-row">
+                    <div class="month-label">Jan</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 28.57142857142857%">20</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Feb</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 68.57142857142857%">48</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Mar</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 90.0%">63</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Apr</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 91.42857142857143%">64</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">May</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 100.0%">70</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Jun</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 61.42857142857143%">43</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Jul</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 68.57142857142857%">48</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Aug</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 64.28571428571429%">45</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Sep</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 55.714285714285715%">39</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Oct</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 64.28571428571429%">45</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Nov</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 57.14285714285714%">40</div>
+                    </div>
+                </div>
+                <div class="heatmap-row">
+                    <div class="month-label">Dec</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: 38.57142857142858%">27</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>🔀</span> Pull Request Success</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 89.12337662337663%">89.1% Merge Rate</div>
+            </div>
+            <div style="margin-top: 1rem; text-align: center; opacity: 0.9;">
+                <span style="color: #4ade80;">✅ 549 Merged</span> • 
+                <span style="color: #f87171;">❌ 41 Closed</span> • 
+                <span style="color: #60a5fa;">⏳ 26 Open</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>📱</span> Summary</h3>
+            <div class="social-post">
+                <div style="margin-bottom: 1.5rem;">
+                    <div class="impact-number">1,347</div>
+                    <div style="font-size: 1.2rem; margin-top: 0.5rem;">Total Contributions 🚀</div>
+                </div>
+                <div class="emoji-line">💻 <span class="highlight">552</span> commits</div>
+                <div class="emoji-line">📝 <span class="highlight">84,218+</span> / <span class="highlight">52,091-</span> lines of code</div>
+                <div class="emoji-line">🔀 <span class="highlight">549</span> PRs merged</div>
+                <div class="emoji-line">👀 <span class="highlight">118</span> PRs reviewed</div>
+                <div class="emoji-line">🐛 <span class="highlight">5</span> issues created</div>
+                <div class="emoji-line">💬 <span class="highlight">458</span> discussions participated</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="margin-top: 0.5rem;">
+                <a href="https://github.com/eduardo-paes" target="_blank" class="github-link">
+                    @eduardo-paes
+                </a> • December 29, 2025
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth animations on load
+        window.addEventListener('load', () => {
+            const bars = document.querySelectorAll('.month-bar-fill, .progress-fill');
+            bars.forEach(bar => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, 100);
+            });
+        });
+    </script>
+</body>
+</html>
