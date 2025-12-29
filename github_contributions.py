@@ -351,6 +351,438 @@ def get_comments_count(org, repo, username, start_date, end_date):
     
     return count
 
+def generate_html_report(org, repo, username, year, commit_stats, pr_stats, review_stats, issue_stats, comment_count):
+    """Generate a beautiful HTML report for social media"""
+    
+    total_contributions = (commit_stats['total'] + pr_stats['total'] + 
+                          review_stats['total'] + issue_stats['total'])
+    
+    # Calculate monthly percentages for heatmap
+    months_data = []
+    max_commits = max(commit_stats['by_month'].values()) if commit_stats['by_month'] else 1
+    month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    
+    for i, month in enumerate(month_names, 1):
+        month_key = f"{year}-{i:02d}"
+        count = commit_stats['by_month'].get(month_key, 0)
+        percentage = (count / max_commits * 100) if max_commits > 0 else 0
+        months_data.append({
+            'name': month,
+            'count': count,
+            'percentage': percentage
+        })
+    
+    merge_rate = (pr_stats['merged'] / pr_stats['total'] * 100) if pr_stats['total'] > 0 else 0
+    
+    html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{year} GitHub Contributions - {username}</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0b1955 0%, #150a20 100%);
+            color: #fff;
+            padding: 2rem;
+            min-height: 100vh;
+        }}
+
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }}
+
+        .header {{
+            text-align: center;
+            margin-bottom: 3rem;
+        }}
+
+        .header h1 {{
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }}
+
+        .header .year {{
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+        
+        .footer {{
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 2px solid rgba(255, 255, 255, 0.2);
+            opacity: 0.8;
+        }}
+
+        .github-link {{
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }}
+
+        .github-link:hover {{
+            color: #FFA500;
+            text-decoration: underline;
+        }}
+
+        .repo-info {{
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }}
+
+        .repo-info h2 {{
+            font-size: 1.5rem;
+            font-weight: 600;
+        }}
+
+        .repo-info .contributor {{
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }}
+
+        .cards-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }}
+
+        .card {{
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }}
+
+        .card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }}
+
+        .card .icon {{
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }}
+
+        .card .number {{
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }}
+
+        .card .label {{
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+
+        .card .subtitle {{
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }}
+
+        .section {{
+            margin-bottom: 2.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 15px;
+        }}
+
+        .section:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .section h3 {{
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }}
+
+        .heatmap {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }}
+
+        .heatmap-row {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }}
+
+        .month-label {{
+            width: 40px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }}
+
+        .month-bar {{
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            height: 25px;
+            position: relative;
+            overflow: hidden;
+        }}
+
+        .month-bar-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, #43a598, #306ad6);
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: width 0.8s ease;
+        }}
+
+        .social-post {{
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            line-height: 1.8;
+            text-align: center;
+        }}
+
+        .social-post .emoji-line {{
+            margin: 0.5rem 0;
+        }}
+
+        .highlight {{
+            color: #FFD700;
+            font-weight: 700;
+        }}
+
+        .impact-number {{
+            font-size: 4rem;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.4);
+        }}
+
+        .progress-bar {{
+            background: rgba(0, 0, 0, 0.3);
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }}
+
+        .progress-fill {{
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            transition: width 1s ease;
+        }}
+
+        @media (max-width: 768px) {{
+            .container {{
+                padding: 1.5rem;
+            }}
+
+            .header h1 {{
+                font-size: 2rem;
+            }}
+
+            .header .year {{
+                font-size: 3rem;
+            }}
+
+            .card .number {{
+                font-size: 2rem;
+            }}
+
+            .cards-grid {{
+                grid-template-columns: 1fr;
+            }}
+        }}
+
+        @media print {{
+            body {{
+                background: white;
+            }}
+            
+            .container {{
+                background: white;
+                color: #333;
+            }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="year">{year}</div>
+            <h1>GitHub Contribution Report</h1>
+        </div>
+
+        <div class="repo-info">
+            <h2>🚀 {org}/{repo}</h2>
+            <div class="contributor">👨‍💻 {username}</div>
+        </div>
+
+        <div class="cards-grid">
+            <div class="card">
+                <div class="icon">💻</div>
+                <div class="number">{commit_stats['total']}</div>
+                <div class="label">Commits</div>
+                <div class="subtitle">{commit_stats['files_changed']:,} files changed</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">🔀</div>
+                <div class="number">{pr_stats['total']}</div>
+                <div class="label">Pull Requests</div>
+                <div class="subtitle">{pr_stats['merged']} merged ✅</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">👀</div>
+                <div class="number">{review_stats['total']:,}</div>
+                <div class="label">Code Reviews</div>
+                <div class="subtitle">{review_stats['prs_reviewed']} PRs reviewed</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">📝</div>
+                <div class="number">{abs(commit_stats['additions'] - commit_stats['deletions']) // 1000}K+</div>
+                <div class="label">Net Lines</div>
+                <div class="subtitle">+{commit_stats['additions']:,} / -{commit_stats['deletions']:,}</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">💬</div>
+                <div class="number">{comment_count}</div>
+                <div class="label">Discussions</div>
+                <div class="subtitle">{issue_stats['total']} issues created</div>
+            </div>
+
+            <div class="card">
+                <div class="icon">🎯</div>
+                <div class="number">{total_contributions:,}</div>
+                <div class="label">Total Impact</div>
+                <div class="subtitle">{merge_rate:.1f}% merge rate</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>📊</span> Monthly Activity</h3>
+            <div class="heatmap">
+"""
+    
+    # Add monthly heatmap
+    for month_data in months_data:
+        html_content += f"""                <div class="heatmap-row">
+                    <div class="month-label">{month_data['name']}</div>
+                    <div class="month-bar">
+                        <div class="month-bar-fill" style="width: {month_data['percentage']}%">{month_data['count']}</div>
+                    </div>
+                </div>
+"""
+    
+    html_content += f"""            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>🔀</span> Pull Request Success</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {merge_rate}%">{merge_rate:.1f}% Merge Rate</div>
+            </div>
+            <div style="margin-top: 1rem; text-align: center; opacity: 0.9;">
+                <span style="color: #4ade80;">✅ {pr_stats['merged']} Merged</span> • 
+                <span style="color: #f87171;">❌ {pr_stats['closed']} Closed</span> • 
+                <span style="color: #60a5fa;">⏳ {pr_stats['open']} Open</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3><span>📱</span> Summary</h3>
+            <div class="social-post">
+                <div style="margin-bottom: 1.5rem;">
+                    <div class="impact-number">{total_contributions:,}</div>
+                    <div style="font-size: 1.2rem; margin-top: 0.5rem;">Total Contributions 🚀</div>
+                </div>
+                <div class="emoji-line">💻 <span class="highlight">{commit_stats['total']}</span> commits</div>
+                <div class="emoji-line">📝 <span class="highlight">{commit_stats['additions']:,}+</span> / <span class="highlight">{commit_stats['deletions']:,}-</span> lines of code</div>
+                <div class="emoji-line">🔀 <span class="highlight">{pr_stats['merged']}</span> PRs merged</div>
+                <div class="emoji-line">👀 <span class="highlight">{review_stats['prs_reviewed']}</span> PRs reviewed</div>
+                <div class="emoji-line">🐛 <span class="highlight">{issue_stats['total']}</span> issues created</div>
+                <div class="emoji-line">💬 <span class="highlight">{comment_count}</span> discussions participated</div>
+                <div style="margin-top: 1rem; color: #60a5fa; font-weight: 600;">
+                    #Developer #GitHub #{repo} #OpenSource
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="margin-top: 0.5rem;">
+                <a href="https://github.com/{username}" target="_blank" class="github-link">
+                    @{username}
+                </a> • {datetime.now().strftime('%B %d, %Y')}
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth animations on load
+        window.addEventListener('load', () => {{
+            const bars = document.querySelectorAll('.month-bar-fill, .progress-fill');
+            bars.forEach(bar => {{
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {{
+                    bar.style.width = width;
+                }}, 100);
+            }});
+        }});
+    </script>
+</body>
+</html>"""
+    
+    return html_content
+
 def generate_report(org, repo, username, year):
     """Generate the complete contribution report"""
     print("\n" + "=" * 70)
@@ -389,89 +821,42 @@ def generate_report(org, repo, username, year):
     
     elapsed_time = time.time() - start_time
     
-    # Generate report
-    print("\n" + "=" * 70)
-    print(f"🎯 CONTRIBUTION REPORT - {year}")
-    print(f"Repository: {org}/{repo}")
-    print(f"Contributor: {username}")
-    print("=" * 70)
+    # Generate HTML report
+    html_content = generate_html_report(
+        org, repo, username, year,
+        commit_stats, pr_stats, review_stats, issue_stats, comment_count
+    )
     
-    print(f"\n💻 COMMITS")
-    print(f"  Total Commits: {commit_stats['total']}")
-    print(f"  Files Changed: {commit_stats['files_changed']}")
-    print(f"  Lines Added: +{commit_stats['additions']:,}")
-    print(f"  Lines Deleted: -{commit_stats['deletions']:,}")
-    print(f"  Net Change: {commit_stats['additions'] - commit_stats['deletions']:+,} lines")
+    # Save to file
+    filename = f"github_report_{username}_{year}.html"
+    with open(filename, 'w', encoding='utf-8') as f:
+        f.write(html_content)
     
-    print(f"\n🔀 PULL REQUESTS")
-    print(f"  Total PRs: {pr_stats['total']}")
-    print(f"  Merged: {pr_stats['merged']} ✅")
-    print(f"  Closed: {pr_stats['closed']}")
-    print(f"  Open: {pr_stats['open']}")
-    if pr_stats['total'] > 0:
-        print(f"  Merge Rate: {(pr_stats['merged'] / pr_stats['total'] * 100):.1f}%")
+    print(f"✅ Report saved to: {filename}")
+    print(f"🌐 Open it in your browser to view!")
     
-    print(f"\n👀 CODE REVIEWS")
-    print(f"  Reviews Given: {review_stats['total']}")
-    print(f"  PRs Reviewed: {review_stats['prs_reviewed']}")
-    
-    print(f"\n🐛 ISSUES")
-    print(f"  Total Issues: {issue_stats['total']}")
-    print(f"  Open: {issue_stats['open']}")
-    print(f"  Closed: {issue_stats['closed']}")
-    
-    print(f"\n💬 DISCUSSIONS")
-    print(f"  Comments: {comment_count}")
-    
-    print("\n" + "=" * 70)
-    
-    # Social media post
+    # Generate quick terminal report
     total_contributions = (commit_stats['total'] + pr_stats['total'] + 
                           review_stats['total'] + issue_stats['total'])
     
-    print("\n📱 SOCIAL MEDIA POST:")
+    print("\n" + "=" * 70)
+    print(f"📊 QUICK SUMMARY")
     print("=" * 70)
-    
-    social_text = f"""
-🎯 My {year} Contributions to {org}/{repo}
-
-💻 {commit_stats['total']} commits
-📝 {commit_stats['additions']:,}+ / {commit_stats['deletions']:,}- lines of code
-🔀 {pr_stats['merged']} PRs merged
-👀 {review_stats['prs_reviewed']} PRs reviewed
-🐛 {issue_stats['total']} issues created
-💬 {comment_count} discussions participated
-
-Total impact: {total_contributions} contributions! 🚀
-
-#OpenSource #Developer #GitHub #{repo}
-"""
-    
-    print(social_text)
-    
-    # Activity heatmap
-    if commit_stats['by_month']:
-        print("\n📊 ACTIVITY HEATMAP (by month):")
-        print("=" * 70)
-        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        
-        max_commits = max(commit_stats['by_month'].values()) if commit_stats['by_month'] else 1
-        
-        for i, month in enumerate(months, 1):
-            month_key = f"{year}-{i:02d}"
-            count = commit_stats['by_month'].get(month_key, 0)
-            
-            bar_length = int((count / max_commits) * 50) if max_commits > 0 else 0
-            bar = "█" * bar_length if count > 0 else "░"
-            
-            print(f"{month}: {bar} ({count})")
+    print(f"💻 Commits: {commit_stats['total']}")
+    print(f"🔀 Pull Requests: {pr_stats['total']} ({pr_stats['merged']} merged)")
+    print(f"👀 Code Reviews: {review_stats['total']:,} reviews in {review_stats['prs_reviewed']} PRs")
+    print(f"📝 Code Changes: +{commit_stats['additions']:,} / -{commit_stats['deletions']:,} lines")
+    print(f"💬 Discussions: {comment_count} comments")
+    print(f"🎯 Total Impact: {total_contributions:,} contributions")
     
     print("\n" + "=" * 70)
-    print(f"\n⏱️  Report generated in {elapsed_time:.2f} seconds")
+    print(f"⏱️  Report generated in {elapsed_time:.2f} seconds")
     
-    # Final rate limit check
-    remaining = check_rate_limit()
+    # Final message
+    print("\n" + "=" * 70)
+    print(f"🎉 All done! Open {filename} in your browser")
+    print("📸 Take a screenshot to share on social media!")
+    print("=" * 70)
 
 if __name__ == "__main__":
     if not validate_config():
