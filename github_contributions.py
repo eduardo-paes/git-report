@@ -5,6 +5,7 @@ from collections import defaultdict
 import os
 import time
 from dotenv import load_dotenv
+from tqdm import tqdm
 
 # Load environment variables
 load_dotenv()
@@ -16,7 +17,7 @@ ORGANIZATION = os.getenv("GITHUB_ORG")
 REPOSITORY = os.getenv("GITHUB_REPO")
 YEAR = int(os.getenv("YEAR", datetime.now().year))
 
-# GitHub API base URL
+# GitHub API base URLs
 API_BASE = "https://api.github.com"
 
 headers = {
@@ -51,15 +52,11 @@ def check_rate_limit():
     if response.status_code == 200:
         data = response.json()
         core = data['resources']['core']
-        remaining = core['remaining']
-        limit = core['limit']
-        reset_time = datetime.fromtimestamp(core['reset'])
         
-        if remaining < 100:
-            print(f"⚠️  Low API rate limit: {remaining}/{limit} remaining")
-            print(f"   Resets at: {reset_time.strftime('%H:%M:%S')}")
+        print(f"📊 API Rate Limits:")
+        print(f"   REST API: {core['remaining']}/{core['limit']}")
         
-        return remaining
+        return core['remaining']
     return None
 
 def get_date_range(year):
@@ -68,214 +65,260 @@ def get_date_range(year):
     end_date = datetime(year, 12, 31, 23, 59, 59)
     return start_date, end_date
 
-def fetch_all_pages(url, params=None):
-    """Fetch all pages from a paginated API endpoint with rate limit handling"""
-    results = []
-    page = 1
-    
-    while True:
-        if params is None:
-            params = {}
-        params['page'] = page
-        params['per_page'] = 100
-        
-        response = requests.get(url, headers=headers, params=params)
-        print(f" Fetching page {url} (page {page}) - Status: {response.status_code}")
-        
-        if response.status_code == 403 and 'rate limit' in response.text.lower():
-            reset_time = int(response.headers.get('X-RateLimit-Reset', 0))
-            if reset_time:
-                wait_time = reset_time - time.time() + 5
-                print(f"⏳ Rate limit hit. Waiting {int(wait_time)}s...")
-                time.sleep(wait_time)
-                continue
-        
-        if response.status_code != 200:
-            print(f"⚠️  Error {response.status_code}: {response.text[:200]}")
-            break
-            
-        data = response.json()
-        if not data:
-            break
-            
-        results.extend(data)
-        page += 1
-        
-        # Progress indicator
-        if page % 5 == 0:
-            print(f"   ... fetched {len(results)} items")
-        
-        # Check if there are more pages
-        if 'Link' not in response.headers or 'rel="next"' not in response.headers['Link']:
-            break
-    
-    return results
-
-def search_github(query, sort='created', order='desc'):
-    """Use GitHub Search API with pagination"""
-    url = f"{API_BASE}/search/issues"
-    params = {
-        'q': query,
-        'sort': sort,
-        'order': order,
-        'per_page': 100
-    }
-    
-    all_results = []
-    page = 1
-    
-    while True:
-        params['page'] = page
-        response = requests.get(url, headers=headers, params=params)
-        print(f" Searching GitHub: {query} (page {page})...")
-        
-        if response.status_code == 403 and 'rate limit' in response.text.lower():
-            reset_time = int(response.headers.get('X-RateLimit-Reset', 0))
-            if reset_time:
-                wait_time = reset_time - time.time() + 5
-                print(f"⏳ Rate limit hit. Waiting {int(wait_time)}s...")
-                time.sleep(wait_time)
-                continue
-        
-        if response.status_code != 200:
-            print(f"⚠️  Search error {response.status_code}: {response.text[:200]}")
-            break
-        
-        data = response.json()
-        items = data.get('items', [])
-        
-        if not items:
-            break
-        
-        all_results.extend(items)
-        
-        # GitHub Search API only returns first 1000 results
-        if len(all_results) >= data.get('total_count', 0) or page >= 10:
-            break
-        
-        page += 1
-        time.sleep(0.5)  # Be nice to the API
-    
-    return all_results
-
 def get_commits(org, repo, username, start_date, end_date):
-    """Get all commits by the user - ALREADY FILTERED BY USER"""
-    print(f"   Fetching commits by {username}...")
+    """
+    Commit fetching - get count fast, sample for details
+    """
+    print("💻 Fetching commit statistics...")
+    
+    # First, get commit list (lightweight)
     url = f"{API_BASE}/repos/{org}/{repo}/commits"
     params = {
         "author": username,
         "since": start_date.isoformat(),
-        "until": end_date.isoformat()
+        "until": end_date.isoformat(),
+        "per_page": 100
     }
     
-    commits = fetch_all_pages(url, params)
+    all_commits = []
+    page = 1
     
+    with tqdm(desc="Loading commits", unit=" commits") as pbar:
+        while page <= 20:  # Limit to 2000 commits max (20 pages)
+            params['page'] = page
+            response = requests.get(url, headers=headers, params=params)
+            
+            if response.status_code != 200:
+                break
+            
+            commits = response.json()
+            if not commits:
+                break
+            
+            all_commits.extend(commits)
+            pbar.update(len(commits))
+            
+            page += 1
+            if 'Link' not in response.headers or 'rel="next"' not in response.headers['Link']:
+                break
+    
+    # Build month stats
     stats = {
-        "total": len(commits),
+        "total": len(all_commits),
         "by_month": defaultdict(int),
-        "files_changed": 0,
         "additions": 0,
-        "deletions": 0
+        "deletions": 0,
+        "files_changed": 0
     }
     
-    print(f"   Fetching detailed stats for {len(commits)} commits...")
-    
-    # Batch process commit details
-    for i, commit in enumerate(commits):
+    for commit in all_commits:
         date = datetime.strptime(commit['commit']['author']['date'], "%Y-%m-%dT%H:%M:%SZ")
         month_key = date.strftime("%Y-%m")
         stats['by_month'][month_key] += 1
-        
-        # Get detailed commit info for stats (only when needed)
-        if (i + 1) % 50 == 0:
-            print(f"   ... processed {i + 1}/{len(commits)} commits")
-        
-        commit_url = f"{API_BASE}/repos/{org}/{repo}/commits/{commit['sha']}"
-        commit_detail = requests.get(commit_url, headers=headers).json()
-        print(f" Fetching commit detail for {commit['sha']}")
-        
-        if 'stats' in commit_detail:
-            stats['additions'] += commit_detail['stats'].get('additions', 0)
-            stats['deletions'] += commit_detail['stats'].get('deletions', 0)
-        if 'files' in commit_detail:
-            stats['files_changed'] += len(commit_detail['files'])
-        
-        time.sleep(0.1)  # Small delay to avoid rate limiting
     
-    return stats, commits
+    # Sample commits for detailed stats
+    sample_size = min(30, len(all_commits))
+    
+    if sample_size > 0:
+        print(f"   📊 Sampling {sample_size} commits for detailed stats...")
+        
+        # Get evenly distributed sample
+        step = len(all_commits) // sample_size if sample_size > 0 else 1
+        sample_commits = all_commits[::step][:sample_size]
+        
+        total_additions = 0
+        total_deletions = 0
+        total_files = 0
+        
+        with tqdm(total=sample_size, desc="Analyzing sample", unit=" commits") as pbar:
+            for commit in sample_commits:
+                commit_detail = requests.get(commit['url'], headers=headers).json()
+                
+                if 'stats' in commit_detail:
+                    total_additions += commit_detail['stats'].get('additions', 0)
+                    total_deletions += commit_detail['stats'].get('deletions', 0)
+                
+                if 'files' in commit_detail:
+                    total_files += len(commit_detail['files'])
+                
+                pbar.update(1)
+                time.sleep(0.05)  # Small delay
+        
+        # Extrapolate to all commits
+        multiplier = len(all_commits) / sample_size
+        stats['additions'] = int(total_additions * multiplier)
+        stats['deletions'] = int(total_deletions * multiplier)
+        stats['files_changed'] = int(total_files * multiplier)
+    
+    print(f"   ✅ Found {stats['total']} commits with ~{stats['additions']:,}/~{stats['deletions']:,} lines")
+    
+    return stats, all_commits
 
 def get_pull_requests(org, repo, username, start_date, end_date):
-    """Get PRs using Search API - FILTERED BY USER"""
-    print(f"   Searching PRs created by {username}...")
+    """
+    Use GitHub Search API instead of pulls endpoint
+    Search API properly filters by author from the start
+    """
+    print("   Using Search API (more reliable for filtering)...")
     
-    # Use GitHub Search API to filter by user upfront
+    # Use Search API with author filter
     query = f"repo:{org}/{repo} author:{username} is:pr created:{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
     
-    prs = search_github(query)
+    search_url = f"{API_BASE}/search/issues"
+    
+    all_prs = []
+    page = 1
+    max_pages = 10  # Limit to 1000 results max
+    
+    with tqdm(desc="Searching PRs", unit=" PRs") as pbar:
+        while page <= max_pages:
+            params = {
+                'q': query,
+                'per_page': 100,
+                'page': page
+            }
+            
+            response = requests.get(search_url, headers=headers, params=params)
+            
+            if response.status_code != 200:
+                print(f"   ⚠️  Search error {response.status_code}: {response.text[:100]}")
+                break
+            
+            data = response.json()
+            items = data.get('items', [])
+            
+            if not items:
+                break
+            
+            all_prs.extend(items)
+            pbar.update(len(items))
+            
+            # Check if we've got everything
+            total_count = data.get('total_count', 0)
+            if len(all_prs) >= total_count:
+                break
+            
+            page += 1
+            time.sleep(0.75)  # Search API has stricter rate limits
     
     stats = {
-        "total": len(prs),
+        "total": len(all_prs),
         "merged": 0,
         "closed": 0,
         "open": 0
     }
     
-    # Count states
-    for pr in prs:
-        if pr.get('pull_request', {}).get('merged_at'):
+    # Count states - search returns issues, need to check pull_request field
+    for pr in all_prs:
+        # Search API returns merged_at in pull_request object
+        pr_data = pr.get('pull_request', {})
+        
+        if pr_data.get('merged_at'):
             stats['merged'] += 1
         elif pr['state'] == 'closed':
             stats['closed'] += 1
         else:
             stats['open'] += 1
     
-    return stats, prs
+    print(f"   ✅ Found {stats['total']} PRs by {username} ({stats['merged']} merged)")
+    
+    return stats, all_prs
 
 def get_pr_reviews(org, repo, username, start_date, end_date):
-    """Get PR reviews using Search API - FILTERED BY USER"""
-    print(f"   Searching PRs reviewed by {username}...")
+    """
+    Review fetching - uses Search API then samples
+    """
+    print("👀 Fetching code reviews...")
     
-    # Search for PRs where user was a reviewer
-    query = f"repo:{org}/{repo} reviewed-by:{username} is:pr created:{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
+    # Use search API to find PRs where user participated
+    query = f"repo:{org}/{repo} reviewed-by:{username} -assignee:{username} created:{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
     
-    reviewed_prs = search_github(query)
+    search_url = f"{API_BASE}/search/issues"
+    params = {
+        'q': query,
+        'per_page': 100
+    }
     
-    # Get actual review count for these PRs
+    all_reviewed_prs = []
+    page = 1
+    max_pages = 10  # Limit to 1000 PRs (10 pages of 100)
+    
+    with tqdm(desc="Finding reviewed PRs", unit=" PRs") as pbar:
+        while page <= max_pages:
+            params['page'] = page
+            response = requests.get(search_url, headers=headers, params=params)
+            
+            if response.status_code != 200:
+                print(f"   ⚠️  Search error: {response.status_code}")
+                break
+            
+            data = response.json()
+            items = data.get('items', [])
+            
+            if not items:
+                break
+            
+            all_reviewed_prs.extend(items)
+            pbar.update(len(items))
+            
+            # Stop if we've reached total count
+            if len(all_reviewed_prs) >= data.get('total_count', 0):
+                break
+            
+            page += 1
+            time.sleep(0.5)  # Rate limit protection
+    
+    # Count actual reviews by sampling
     review_count = 0
-    unique_prs = set()
+    unique_prs = len(all_reviewed_prs)
     
-    if reviewed_prs:
-        print(f"   Counting reviews in {len(reviewed_prs)} PRs...")
+    # Sample strategy: Check up to 50 PRs, extrapolate the rest
+    sample_size = min(50, unique_prs)
+    
+    if sample_size > 0:
+        with tqdm(total=sample_size, desc="Counting reviews", unit=" PRs") as pbar:
+            for pr in all_reviewed_prs[:sample_size]:
+                reviews_url = f"{API_BASE}/repos/{org}/{repo}/pulls/{pr['number']}/reviews"
+                response = requests.get(reviews_url, headers=headers)
+                
+                if response.status_code == 200:
+                    reviews = response.json()
+                    user_reviews = [r for r in reviews if r['user']['login'].lower() == username.lower()]
+                    review_count += len(user_reviews)
+                
+                pbar.update(1)
+                time.sleep(0.05)
         
-        for pr in reviewed_prs:
-            pr_number = pr['number']
-            unique_prs.add(pr_number)
-            
-            # Get reviews for this PR
-            reviews_url = f"{API_BASE}/repos/{org}/{repo}/pulls/{pr_number}/reviews"
-            response = requests.get(reviews_url, headers=headers)
-            print(f" Fetching reviews for PR #{pr_number} - Status: {response.status_code}")
-            
-            if response.status_code == 200:
-                reviews = response.json()
-                user_reviews = [r for r in reviews if r['user']['login'] == username]
-                review_count += len(user_reviews)
-            
-            time.sleep(0.1)  # Small delay
+        # Extrapolate to all PRs if we sampled
+        if unique_prs > sample_size:
+            avg_reviews_per_pr = review_count / sample_size
+            review_count = int(avg_reviews_per_pr * unique_prs)
+            print(f"   📊 Extrapolated from {sample_size} PRs")
+    
+    print(f"   ✅ Found ~{review_count} reviews across {unique_prs} PRs")
     
     return {
         "total": review_count,
-        "prs_reviewed": len(unique_prs)
+        "prs_reviewed": unique_prs
     }
 
 def get_issues(org, repo, username, start_date, end_date):
-    """Get issues using Search API - FILTERED BY USER"""
-    print(f"   Searching issues created by {username}...")
+    """Get issues using Search API"""
+    print("🐛 Fetching issues...")
     
-    # Search for issues (not PRs) created by user
     query = f"repo:{org}/{repo} author:{username} is:issue created:{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
     
-    issues = search_github(query)
+    search_url = f"{API_BASE}/search/issues"
+    params = {'q': query, 'per_page': 100}
+    
+    with tqdm(desc="Loading issues", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}') as pbar:
+        response = requests.get(search_url, headers=headers, params=params)
+        pbar.update(100)
+    
+    if response.status_code != 200:
+        return {"total": 0, "open": 0, "closed": 0}
+    
+    issues = response.json().get('items', [])
     
     stats = {
         "total": len(issues),
@@ -283,53 +326,72 @@ def get_issues(org, repo, username, start_date, end_date):
         "closed": sum(1 for issue in issues if issue['state'] == 'closed')
     }
     
+    print(f"   ✅ Found {stats['total']} issues")
+    
     return stats
 
-def get_issue_comments(org, repo, username, start_date, end_date):
-    """Get issue/PR comments by user"""
-    print(f"   Searching comments by {username}...")
+def get_comments_count(org, repo, username, start_date, end_date):
+    """Get approximate comment count"""
+    print("💬 Fetching comment activity...")
     
-    # Search for comments by user
     query = f"repo:{org}/{repo} commenter:{username} created:{start_date.strftime('%Y-%m-%d')}..{end_date.strftime('%Y-%m-%d')}"
     
-    # Note: GitHub Search doesn't directly support comment search, so we approximate
-    # by searching for issues/PRs where user commented
-    commented_items = search_github(query)
+    search_url = f"{API_BASE}/search/issues"
+    params = {'q': query, 'per_page': 1}
     
-    return len(commented_items)
+    with tqdm(desc="Counting comments", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt}') as pbar:
+        response = requests.get(search_url, headers=headers, params=params)
+        pbar.update(100)
+    
+    if response.status_code != 200:
+        return 0
+    
+    count = response.json().get('total_count', 0)
+    print(f"   ✅ Found ~{count} commented threads")
+    
+    return count
 
 def generate_report(org, repo, username, year):
     """Generate the complete contribution report"""
-    print(f"\n🔍 Analyzing contributions for {username} in {org}/{repo} ({year})")
-    print("=" * 70)
+    print("\n" + "=" * 70)
+    print(f"🔍 GitHub Contribution Report Generator")
+    print(f"Repository: {org}/{repo}")
+    print(f"User: {username}")
+    print(f"Year: {year}")
+    print("=" * 70 + "\n")
     
-    # Check rate limit before starting
-    remaining = check_rate_limit()
-    if remaining and remaining < 100:
-        print("⚠️  Consider waiting for rate limit to reset\n")
+    # Check rate limit
+    check_rate_limit()
+    print()
     
     start_date, end_date = get_date_range(year)
     
-    # Gather all statistics (now optimized with user filters)
-    print("\n📊 Fetching data (this may take a few minutes)...\n")
+    # Track total API calls
+    start_time = time.time()
     
-    print("1️⃣  COMMITS")
-    commit_stats, commits = get_commits(org, repo, username, start_date, end_date)
+    # Gather all statistics with progress tracking
+    print("📊 Gathering contribution data...\n")
     
-    print("\n2️⃣  PULL REQUESTS")
-    pr_stats, prs = get_pull_requests(org, repo, username, start_date, end_date)
+    commit_stats, _ = get_commits(org, repo, username, start_date, end_date)
+    print()
     
-    print("\n3️⃣  CODE REVIEWS")
+    pr_stats, _ = get_pull_requests(org, repo, username, start_date, end_date)
+    print()
+    
     review_stats = get_pr_reviews(org, repo, username, start_date, end_date)
+    print()
     
-    print("\n4️⃣  ISSUES")
     issue_stats = get_issues(org, repo, username, start_date, end_date)
+    print()
     
-    print("\n5️⃣  COMMENTS")
-    comment_count = get_issue_comments(org, repo, username, start_date, end_date)
+    comment_count = get_comments_count(org, repo, username, start_date, end_date)
+    print()
     
+    elapsed_time = time.time() - start_time
+    
+    # Generate report
     print("\n" + "=" * 70)
-    print(f"\n🎯 CONTRIBUTION REPORT - {year}")
+    print(f"🎯 CONTRIBUTION REPORT - {year}")
     print(f"Repository: {org}/{repo}")
     print(f"Contributor: {username}")
     print("=" * 70)
@@ -363,12 +425,12 @@ def generate_report(org, repo, username, year):
     
     print("\n" + "=" * 70)
     
-    # Generate social media text
-    print("\n📱 SOCIAL MEDIA POST:")
-    print("=" * 70)
-    
+    # Social media post
     total_contributions = (commit_stats['total'] + pr_stats['total'] + 
                           review_stats['total'] + issue_stats['total'])
+    
+    print("\n📱 SOCIAL MEDIA POST:")
+    print("=" * 70)
     
     social_text = f"""
 🎯 My {year} Contributions to {org}/{repo}
@@ -387,7 +449,7 @@ Total impact: {total_contributions} contributions! 🚀
     
     print(social_text)
     
-    # Generate emoji visualization
+    # Activity heatmap
     if commit_stats['by_month']:
         print("\n📊 ACTIVITY HEATMAP (by month):")
         print("=" * 70)
@@ -400,18 +462,16 @@ Total impact: {total_contributions} contributions! 🚀
             month_key = f"{year}-{i:02d}"
             count = commit_stats['by_month'].get(month_key, 0)
             
-            # Scale bars based on max commits
             bar_length = int((count / max_commits) * 50) if max_commits > 0 else 0
             bar = "█" * bar_length if count > 0 else "░"
             
             print(f"{month}: {bar} ({count})")
     
     print("\n" + "=" * 70)
+    print(f"\n⏱️  Report generated in {elapsed_time:.2f} seconds")
     
     # Final rate limit check
     remaining = check_rate_limit()
-    if remaining:
-        print(f"\n✅ API calls remaining: {remaining}")
 
 if __name__ == "__main__":
     if not validate_config():
