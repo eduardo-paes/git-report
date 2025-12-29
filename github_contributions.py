@@ -742,9 +742,6 @@ def generate_html_report(org, repo, username, year, commit_stats, pr_stats, revi
                 <div class="emoji-line">👀 <span class="highlight">{review_stats['prs_reviewed']}</span> PRs reviewed</div>
                 <div class="emoji-line">🐛 <span class="highlight">{issue_stats['total']}</span> issues created</div>
                 <div class="emoji-line">💬 <span class="highlight">{comment_count}</span> discussions participated</div>
-                <div style="margin-top: 1rem; color: #60a5fa; font-weight: 600;">
-                    #Developer #GitHub #{repo} #OpenSource
-                </div>
             </div>
         </div>
 
